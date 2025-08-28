@@ -1271,7 +1271,7 @@ const marker = L.marker([lat, lng], { icon }).addTo(map);
 setInterval(() => {
     const el = document.getElementById('warning-message');
     
-    // случайное решение: показать или скрыть
+    // бросаем "монетку": 0 или 1
     const show = Math.random() < 0.5;
 
     if (show) {
@@ -1279,7 +1279,7 @@ setInterval(() => {
     } else {
         el.classList.add('hidden');    // спрятать
     }
-}, 10 * 1000); // каждые 10 секунд
+}, 10 * 60 * 1000); // каждые 10 минут
 
 const translations = {
     "supercam": "Supercam",
