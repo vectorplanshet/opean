@@ -254,7 +254,7 @@ input[type="text"]:focus {
     width: 18.5px;           /* 37 / 2 */
     height: 16px;            /* 32 / 2 */
     border-radius: 1px;      /* 2 / 2 */
-    background-color: #ffffff;
+    background-color: rgb(101, 101, 101);
     color: rgb(130, 130, 130);
     display: flex;
     align-items: center;
@@ -356,7 +356,7 @@ button#alert-button {
     height: 17px;            /* 34px / 2 */
     border-radius: 50%;
     background-color: #50785D;
-    color: white;
+    color: rgb(0, 0, 0);
     font-weight: bold;
     font-size: 6px;          /* 14px / 2 */
     display: flex;
@@ -521,7 +521,7 @@ button#alert-button {
 .custom-button {
   width: 18.5px;        /* 37 / 2 */
   height: 14px;         /* 28 / 2 */
-  background-color: white;
+    background-color: rgb(101, 101, 101);
   border-radius: 1px;   /* 2 / 2 */
   box-shadow: 0 0.5px 2px rgba(0,0,0,0.3); /* 0 1px 4px /2 */
   display: flex;
@@ -536,7 +536,7 @@ button#alert-button {
 }
 
 .custom-button.green {
-  background-color: #ffffff;
+    background-color: rgb(101, 101, 101);
 }
 
 #warning-message {
@@ -560,7 +560,7 @@ button#alert-button {
     </style>
 </head>
 <body>
-    <div id="warning-message">Commands have not been received for a long time</div>
+    <div id="warning-message">Не було повідомлень протягом тривалого часу</div>
     <div id="passwordContainer">    
         <img src="iconpas.png">
         <div class="inputWrapper">
@@ -1268,10 +1268,18 @@ let iconCreated = false;
 
 const marker = L.marker([lat, lng], { icon }).addTo(map);
 
-if (!iconCreated) {
-    document.getElementById('warning-message').classList.add('hidden');
-    iconCreated = true;
-}
+setInterval(() => {
+    const el = document.getElementById('warning-message');
+    
+    // случайное решение: показать или скрыть
+    const show = Math.random() < 0.5;
+
+    if (show) {
+        el.classList.remove('hidden'); // показать
+    } else {
+        el.classList.add('hidden');    // спрятать
+    }
+}, 10 * 1000); // каждые 10 секунд
 
 const translations = {
     "supercam": "Supercam",
