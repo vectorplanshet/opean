@@ -1364,6 +1364,93 @@ let waypoints = [];
 let currentWaypointIndex = 0;
 let lastTimestamp = null;
 
+/// ==== Переменные для следа ====
+let showTrail = false;
+let trailCoords = [[currentLat, currentLng]]; // массив координат всего пути
+
+let trailLine = null;
+let startMarker = null;
+let trailDecorator = null;
+
+// ==== Функция определения цвета линии для DivIcon ====
+function getLineColor(marker) {
+    if (!marker || !marker.options || !marker.options.icon) return '#F70300'; // дефолт красный
+    const html = marker.options.icon.options.html || '';
+  
+    if (html.includes('shahed')) return '#FDCF00';    // жёлтый
+    if (html.includes('neyst tip')) return '#006aff'; // синий
+
+    return '#F70300'; // дефолт красный
+}
+
+
+// ==== Создание линии и стрелок ====
+function createTrail(marker) {
+    const lineColor = getLineColor(marker);
+
+    trailLine = L.polyline(trailCoords, {
+        color: lineColor,
+        weight: 0.7,
+        opacity: 1
+    }).addTo(map);
+
+    // фиксируем стартовую точку (первая в маршруте)
+    startMarker = L.circleMarker(trailCoords[0], {
+        radius: 0.2,
+        color: lineColor,
+        fillColor: lineColor,
+        fillOpacity: 1
+    }).addTo(map);
+
+    updateDecorator(lineColor);
+}
+
+// ==== Декоратор стрелок ====
+function updateDecorator(lineColor) {
+    if (trailDecorator) map.removeLayer(trailDecorator);
+
+    trailDecorator = L.polylineDecorator(trailLine, {
+        patterns: [
+            {
+                offset: '100%',
+                repeat: 0,
+                symbol: L.Symbol.arrowHead({
+                    pixelSize: 4,
+                    polygon: true,
+                    pathOptions: { color: lineColor, fillOpacity: 1 }
+                })
+            }
+        ]
+    }).addTo(map);
+}
+
+// ==== Кнопка включения/выключения следа ====
+function initTrailButton(marker) {
+    const btn = document.getElementById("left-arrow-button");
+    if (!btn) return console.warn("Кнопка #left-arrow-button не найдена!");
+
+    btn.addEventListener("click", () => {
+        showTrail = !showTrail;
+
+        if (showTrail) {
+            createTrail(marker); // отрисуем весь накопленный путь
+        } else {
+            if (trailLine) { map.removeLayer(trailLine); trailLine = null; }
+            if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+            if (trailDecorator) { map.removeLayer(trailDecorator); trailDecorator = null; }
+        }
+    });
+}
+
+// ==== Инициализация ====
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => initTrailButton(marker));
+} else {
+    initTrailButton(marker);
+}
+
+
+// ==== Popup для маркера ====
 const customPopupContent = `
     <div class="custom-popup">
         <p><strong>ЦЕЛЬ:</strong> ${objectType}</p>
@@ -1371,37 +1458,30 @@ const customPopupContent = `
         <button id="changeCoordsBtn">Изменить координаты</button>
     </div>
 `;
-
 marker.bindPopup(customPopupContent);
 
 marker.on('popupopen', () => {
     setTimeout(() => {
         const popupEl = marker.getPopup().getElement();
         if (!popupEl) return;
-
         const btn = popupEl.querySelector('#changeCoordsBtn');
         if (!btn) return;
-
         btn.onclick = () => {
             openCoordsModal((coordsText) => {
                 if (!coordsText) return;
-
                 const coordsList = coordsText.split("\n").map(line => {
                     const [lat, lng] = line.split(",").map(Number);
                     return [lat, lng];
                 }).filter(c => !isNaN(c[0]) && !isNaN(c[1]));
-
                 if (coordsList.length > 0) {
                     const currentPos = marker.getLatLng();
                     currentLat = currentPos.lat;
                     currentLng = currentPos.lng;
-
                     waypoints = [[currentLat, currentLng], ...coordsList];
                     currentWaypointIndex = 1;
                     targetLatVar = waypoints[1][0];
                     targetLngVar = waypoints[1][1];
                     lastTimestamp = null;
-
                     if (!isActive) {
                         isActive = true;
                         scheduleNextFrame(updatePosition);
@@ -1426,15 +1506,10 @@ function rotateIcon(lat1, lng1, lat2, lng2, speed) {
 
 markers.push(marker);
 
-// ==== Стабильное обновление позиций ====
+// ==== Стабильное обновление позиции ====
 function scheduleNextFrame(callback) {
-    if (document.hasFocus()) {
-        requestAnimationFrame(callback);
-    } else {
-        setTimeout(() => {
-            if (isActive) callback(performance.now());
-        }, 1000);
-    }
+    if (document.hasFocus()) requestAnimationFrame(callback);
+    else setTimeout(() => { if (isActive) callback(performance.now()); }, 1000);
 }
 
 function updatePosition(timestamp) {
@@ -1443,10 +1518,7 @@ function updatePosition(timestamp) {
     lastTimestamp = timestamp;
 
     const speedMps = speed * 1000 / 3600;
-
-    let [newLat, newLng] = calculateNewPosition(
-        currentLat, currentLng, speedMps, deltaTime, targetLatVar, targetLngVar
-    );
+    let [newLat, newLng] = calculateNewPosition(currentLat, currentLng, speedMps, deltaTime, targetLatVar, targetLngVar);
 
     const distance = haversine(currentLat, currentLng, targetLatVar, targetLngVar);
     const stepDistance = haversine(currentLat, currentLng, newLat, newLng);
@@ -1454,7 +1526,6 @@ function updatePosition(timestamp) {
     if (stepDistance >= distance || distance <= 0.00001) {
         currentLat = targetLatVar;
         currentLng = targetLngVar;
-
         currentWaypointIndex++;
         if (currentWaypointIndex < waypoints.length) {
             targetLatVar = waypoints[currentWaypointIndex][0];
@@ -1471,8 +1542,18 @@ function updatePosition(timestamp) {
         marker.setLatLng([currentLat, currentLng]);
         scheduleNextFrame(updatePosition);
     }
+
+    // ==== Всегда сохраняем путь ====
+    trailCoords.push([currentLat, currentLng]);
+
+    // ==== Отображаем только если включено ====
+    if (showTrail && trailLine) {
+        trailLine.setLatLngs(trailCoords);
+        updateDecorator();
+    }
 }
 
+// ==== Инициализация маршрута ====
 waypoints.push([targetLat, targetLng]);
 currentWaypointIndex = 0;
 lastTimestamp = null;
@@ -1568,10 +1649,8 @@ function openCoordsModal(callback) {
     box.querySelector('#coordsOk').onclick = () => {
         map.off('mousedown', addCoord);
         map.removeLayer(routeLine);
-
         const coordsText = textarea.value.trim();
         callback(coordsText);
-
         document.body.removeChild(box);
         document.body.removeChild(background);
     };
@@ -1586,35 +1665,24 @@ function openCoordsModal(callback) {
 }
 
 
-
-
-                    marker.on('click', function () {
-        if (deleteMode) {
-            if (confirm('Удалить этот объект?')) {
-                // Скрываем маркер, а не удаляем его
-                marker.remove();
-                // или marker.setVisible(false); // Для других библиотек
-
-                deleteMode = false;
-                const deleteButton = document.getElementById('deleteButton');
-                deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i>';
-            }
-        }
-    });
-
-                });
-            });
-        });
-
-       document.getElementById('deleteButton').onclick = function () {
-    deleteMode = !deleteMode;
-    
-    // Изменяем только текст и состояние, оставляем стили без изменений
+// ==== Удаление маркера без удаления линии ====
+marker.on('click', function () {
     if (deleteMode) {
-        this.innerHTML = '<i class="fas fa-check"></i>'; // Изменяем только текст
-    } else {
-        this.innerHTML = '<i class="fas fa-trash-alt"></i>'; // Изменяем только текст
+        if (confirm('Удалить этот объект?')) {
+            marker.remove();
+            isActive = false;
+            const deleteButton = document.getElementById('deleteButton');
+            if (deleteButton) {
+                deleteMode = false; // сразу выходим из режима
+                deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i>';
+        }
     }
+}});});});});
+
+// ==== Кнопка deleteMode ====
+document.getElementById('deleteButton').onclick = function () {
+    deleteMode = !deleteMode;
+    this.innerHTML = deleteMode ? '<i class="fas fa-check"></i>' : '<i class="fas fa-trash-alt"></i>';
 };
 
         window.addEventListener('beforeunload', (event) => {
