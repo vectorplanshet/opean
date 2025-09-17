@@ -1601,7 +1601,7 @@ function openCoordsModal(callback) {
     box.className = 'modal show coords-modal-top-left';
     box.innerHTML = `
         <h2>Выберите точки маршрута</h2>
-        <textarea id="coordsInput" placeholder="Кликай колёсиком по карте или дважды на телефоне" style="width:100%; height:80px; font-size:7px; background:#1e232c; color:#fff; border:1px solid #3a4152; border-radius:4px; padding:3px;"></textarea>
+        <textarea id="coordsInput" placeholder="Кликай колёсиком по карте" style="width:100%; height:80px; font-size:7px; background:#1e232c; color:#fff; border:1px solid #3a4152; border-radius:4px; padding:3px;"></textarea>
         <button id="coordsOk" class="modal-button">OK</button>
         <button id="coordsCancel" class="modal-button">Отмена</button>
     `;
@@ -1635,32 +1635,19 @@ function openCoordsModal(callback) {
     let tempWaypoints = [marker.getLatLng()];
     let routeLine = L.polyline(tempWaypoints, { color: '#dd0347', weight: 1, opacity: 1 }).addTo(map);
 
-    // функция добавления точки
-    const addCoord = (latlng) => {
+    const addCoord = (e) => {
+        if (e.originalEvent.button !== 1) return;
+        e.originalEvent.preventDefault();
+        const latlng = map.mouseEventToLatLng(e.originalEvent);
         textarea.value += latlng.lat.toFixed(5) + "," + latlng.lng.toFixed(5) + "\n";
         tempWaypoints.push(latlng);
         routeLine.setLatLngs(tempWaypoints);
     };
 
-    // ПК: средняя кнопка мыши
-    const addCoordMouse = (e) => {
-        if (e.originalEvent.button !== 1) return;
-        e.originalEvent.preventDefault();
-        const latlng = map.mouseEventToLatLng(e.originalEvent);
-        addCoord(latlng);
-    };
-
-    // Мобильные устройства: двойной тап/клик
-    const addCoordTouch = (e) => {
-        addCoord(e.latlng);
-    };
-
-    map.on('mousedown', addCoordMouse);
-    map.on('dblclick', addCoordTouch);
+    map.on('mousedown', addCoord);
 
     box.querySelector('#coordsOk').onclick = () => {
-        map.off('mousedown', addCoordMouse);
-        map.off('dblclick', addCoordTouch);
+        map.off('mousedown', addCoord);
         map.removeLayer(routeLine);
         const coordsText = textarea.value.trim();
         callback(coordsText);
@@ -1669,15 +1656,13 @@ function openCoordsModal(callback) {
     };
 
     box.querySelector('#coordsCancel').onclick = () => {
-        map.off('mousedown', addCoordMouse);
-        map.off('dblclick', addCoordTouch);
+        map.off('mousedown', addCoord);
         map.removeLayer(routeLine);
         document.body.removeChild(box);
         document.body.removeChild(background);
         callback(null);
     };
 }
-
 
 
 // ==== Удаление маркера без удаления линии ====
